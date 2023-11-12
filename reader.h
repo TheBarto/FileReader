@@ -9,7 +9,8 @@
 
 typedef struct {
     int8_t file_desc;
-    uint8_t* file_ptr;
+    uint8_t* file_ptr; //The first position of the data
+    uint8_t* ptr_read; //Ptr to read the data
     uint8_t separator; /* Separator between elements*/
     uint8_t line_start; /* Line start */
     uint32_t total_file_size;
