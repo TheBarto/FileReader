@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#if 0
 uint8_t open_file(FileReader* fr, uint8_t* file_name)
 {
     memset(fr, 0, sizeof(FileReader));
@@ -36,6 +37,32 @@ uint8_t open_file(FileReader* fr, uint8_t* file_name)
 
     return 0;
 }
+#endif
+
+uint8_t open_file(FileReader* fr, uint8_t* file_name)
+{
+    memset(fr, 0, sizeof(FileReader));
+    fr->file_desc = open((char *)file_name, O_RDONLY);
+    if(fr->file_desc == -1)
+    {
+       printf("Errno(%d) - %s\n", errno, strerror(errno)); 
+        return -1;
+    }
+    //if(fr->total_file_size != 
+    //        read(fr->file_desc, fr->file_ptr, fr->total_file_size))
+    //    return -1;
+    printf("... %lu\n", read(fr->file_desc, fr->file_lec, 512));
+
+    fr->separator = ',';
+    fr->line_start = ':';
+
+    fr->ptr_read = &fr->file_lec[0];
+    //Need to add new end (0) and re-ajust the size
+    parse_white_spaces(fr->file_lec, 512);
+
+    return 0;
+}
+
 
 //Error if the number starts with 0, like 001
 int32_t parse_value(uint8_t* ptr_file, uint32_t size)
@@ -85,6 +112,7 @@ void parse_value_readed(uint8_t* ptr_file, uint32_t size, uint32_t* dst_arr)
     return;
 }
 
+#if 0
 //Be carefull with the jump lines values, because it adds more undesired length 
 int32_t read_line(FileReader* fr, uint8_t* line_start, uint32_t* dst_arr)
 {
@@ -120,6 +148,59 @@ int32_t read_line(FileReader* fr, uint8_t* line_start, uint32_t* dst_arr)
 
     return tot_vals;
 }
+#endif
+
+//Be carefull with the jump lines values, because it adds more undesired length 
+int32_t read_line(FileReader* fr, uint8_t* line_start, uint32_t* dst_arr)
+{
+    uint8_t* ptr_file = fr->ptr_read;
+    
+    //Search the line start
+    while((*ptr_file != fr->line_start))
+        ptr_file++;
+
+    ptr_file++;//Advance one to pass the ':'
+    uint8_t* ptr_aux_file = ptr_file;
+    uint32_t tot_vals = 0;
+    while(1) {
+    //Reading all content of a line separate for ','
+        while((*ptr_aux_file != fr->separator) && 
+              (*ptr_aux_file != fr->line_start) && 
+              (*ptr_aux_file != 0))
+                ptr_aux_file++;
+        
+        if(*ptr_aux_file == fr->separator) {
+            parse_value_readed(ptr_file, (ptr_aux_file - ptr_file), &dst_arr[tot_vals]);
+            tot_vals++;
+            ptr_aux_file++;
+            ptr_file = ptr_aux_file;
+        } else if(*ptr_aux_file == 0) {
+            memcpy(&fr->file_lec[0], ptr_aux_file, (512-(ptr_aux_file-ptr_file)));
+            ptr_aux_file = &fr->file_lec[(ptr_aux_file-ptr_file)];
+            ptr_file = &fr->file_lec[0];
+            parse_white_spaces(ptr_aux_file, read(fr->file_desc, ptr_aux_file, 512));
+        } else if(*ptr_aux_file == fr->line_start) {
+            parse_value_readed(ptr_file, (ptr_aux_file - ptr_file), &dst_arr[tot_vals]);
+            ptr_file = ptr_aux_file;
+            tot_vals++;
+            break;
+        }
+    }
+    fr->ptr_read = ptr_file;
+
+    return tot_vals;
+}
+
+/*void load_new_file_info(FileReader* fr, uint8_t* ptr_aux_file, uint8_t) {
+    
+    memcpy(&fr->file_anal[0], fr->ptr_file, (ptr_file_aux - fr->ptr_read));
+    printf("... %lu\n", read(fr->file_desc, fr->file_read, fr->total_file_size));
+    memcpy(fr->file_anal[(ptr_file_aux - fr->ptr_read)], fr->file_lec, (512-(ptr_file_aux - fr->ptr_read))); 
+    fr->ptr_file_aux = &fr->file_anal[(ptr_file_aux - fr->ptr_read)];
+    fr->ptr_read = fr->file_anal[0];
+
+    return;
+}*/
 
 uint8_t* strip_values(uint8_t* file, uint32_t ssize)
 {
